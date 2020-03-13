@@ -14,6 +14,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.MarkerOptions;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationClickListener {
 
@@ -30,38 +31,34 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         requestPermission();
 
-        mapFragment.getMapAsync(this);
+        try {
+            mapFragment.getMapAsync(this);
+        } catch (NullPointerException e) {
+            e.printStackTrace();
+        }
+
 
     }
 
-
+    // Unsued for now
     public boolean checkPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            return true;
-        } else {
-            return false;
-        }
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     public void requestPermission() {
+
         if (!(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_LOCATION_REQUEST_CODE);
+        } else {
+            // TODO Make it only appear once
+                Toast.makeText(this, "Permission granted!", Toast.LENGTH_LONG).show();
         }
-    }
-
-    @Override
-    public void onMyLocationClick(@NonNull Location location) {
-        Toast.makeText(this, "you are here!", Toast.LENGTH_LONG).show();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == MY_LOCATION_REQUEST_CODE) {
-            if (permissions.length == 1 &&
-                    permissions[0] == Manifest.permission.ACCESS_FINE_LOCATION &&
-                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Permission granted!", Toast.LENGTH_LONG).show();
-            } else {
+            if (permissions.length != 1 || permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION ) || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Please allow location!", Toast.LENGTH_LONG).show();
                 requestPermission();
             }
@@ -77,12 +74,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         // mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
         // mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
-        if (checkPermission()) {
-
             mMap.setMyLocationEnabled(true);
-            mMap.setOnMyLocationClickListener(this);
 
-        }
+    }
+
+    @Override
+    public void onMyLocationClick(@NonNull Location location) {
+        // TODO: Implement
     }
 }
 
