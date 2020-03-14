@@ -1,6 +1,7 @@
 package com.example.findfriends;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -29,7 +30,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
 
-        requestPermission();
+        //requestPermission();
 
         try {
             mapFragment.getMapAsync(this);
@@ -62,6 +63,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 Toast.makeText(this, "Please allow location!", Toast.LENGTH_LONG).show();
                 requestPermission();
             }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                //TODO: Locaction wird noch nicht angezeigt nach dem akzeptieren der Berechtigung, erst wenn die Activity neu aufgerufen wird
+                mMap.setMyLocationEnabled(true);
+                mMap.setOnMyLocationClickListener(this);
+
+                //Reload to using new Permissions
+                Intent intent = new Intent(this, MainActivity.class);
+                startActivity(intent);
+            }
         }
     }
 
@@ -69,12 +80,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        // Add a marker in Sydney, Australia, and move the camera.
-        // LatLng sydney = new LatLng(-34, 151);
-        // mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        // mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            // TODO: Before enabling the My Location layer, you must request
+            // location permission from the user.
             mMap.setMyLocationEnabled(true);
+            mMap.setOnMyLocationClickListener(this);
+        } else //No Permissions
+        {
+            //Request GPS Permission
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_LOCATION_REQUEST_CODE);
+        }
 
     }
 
