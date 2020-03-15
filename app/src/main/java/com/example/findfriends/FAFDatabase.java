@@ -45,7 +45,11 @@ public class FAFDatabase
     {
         con.send("g;" + key);
         String ans = con.getPacket();
-        return ans;
+
+        if(ans.length() > 0)
+            return ans.substring(1);
+        else
+            return "";
     }
 
     public String remove(String key)

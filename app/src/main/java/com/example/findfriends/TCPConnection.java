@@ -1,5 +1,6 @@
 package com.example.findfriends;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -32,17 +33,17 @@ public class TCPConnection
     public String getPacket()
     {
         try {
-            InputStream input = socket.getInputStream();
-            InputStreamReader reader = new InputStreamReader(input);
+            BufferedReader bufferedReader =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    socket.getInputStream()));
+            char[] buffer = new char[200];
+            int n = bufferedReader.read(buffer, 0, 200); // blockiert bis Nachricht empfangen
+            String data = new String(buffer, 0, n);
 
-            int character;
-            StringBuilder data = new StringBuilder();
+            System.out.println(data);
 
-            while ((character = reader.read()) != -1) {
-                data.append((char) character);
-            }
-
-            return data.toString();
+            return data;
         }
         catch(Exception ex)
         {

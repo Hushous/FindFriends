@@ -26,6 +26,8 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -47,7 +49,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private static final long MIN_TIME = 4000;
     private static final float MIN_DISTANCE = 1000;
 
-    private FAFDatabase faf = new FAFDatabase();
+    Gson gson = new Gson();
 
 
     @Override
@@ -74,12 +76,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             ArrayList<User> userlist;
             String android_id = Settings.Secure.getString(MainActivity.this.getContentResolver(), Settings.Secure.ANDROID_ID);
 
+            //Todo: auslagern in externe klasse und .getLocations(); ...
             @Override
             public void run() {
-
+                FAFDatabase faf = new FAFDatabase();
                 faf.connect("meiner.ml", 2345);
                 String ans = faf.get("RaketeStart");
-                userlist = deserialize(ans);
+
+                userlist = gson.fromJson(ans, new TypeToken<ArrayList<User>>(){}.getType());
+
+
                 if(userlist == null) userlist = new ArrayList<>();
 
                 User ownUser = new User();
@@ -88,8 +94,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                 if (userlist.contains(ownUser) == false) {
                     userlist.add(ownUser);
-                    faf.update("RaketeStart", serialize(userlist));
-                    System.out.println(serialize(userlist));
+                    faf.update("RaketeStart", gson.toJson(userlist));
+                    System.out.println(gson.toJson(userlist));
                 }
 
                 faf.close();
@@ -105,6 +111,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                     for (User user : userlist) {
                         String loc = faf.get(user.UID);
+                        System.out.println(loc);
+                        //TODO: implement Marker objects
                     }
                     faf.close();
                 }
@@ -112,34 +120,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    public static String serialize(ArrayList dataList) {
-
-        try (ByteArrayOutputStream bo = new ByteArrayOutputStream();
-             ObjectOutputStream so = new ObjectOutputStream(bo)) {
-            so.writeObject(dataList);
-            so.flush();
-            return Base64.getEncoder().encodeToString(bo.toByteArray());
-        }
-        catch (IOException e) {
-
-        }
-        return null;
-    }
-
-    public static ArrayList deserialize(String dataStr) {
-
-        byte[] b = Base64.getDecoder().decode(dataStr);
-        ByteArrayInputStream bi = new ByteArrayInputStream(b);
-        ObjectInputStream si;
-        try {
-            si = new ObjectInputStream(bi);
-            return ArrayList.class.cast(si.readObject());
-        }
-        catch (IOException | ClassNotFoundException e) {
-            //throw new SerializationException("Error during deserialization", e);
-            return new ArrayList();
-        }
-    }
 
     // Unsued for now
     public boolean checkPermission() {
@@ -194,7 +174,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
-    public void onMyLocationClick(@NonNull Location location) {
+    public void onMyLocationClick(final @NonNull Location location) {
         // TODO: Implement
     }
 
@@ -210,20 +190,22 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
 
-        AsyncTask.execute(new Runnable() {
+        AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
             @Override
             public void run() {
+                FAFDatabase faf = new FAFDatabase();
+
                 String android_id = Settings.Secure.getString(MainActivity.this.getContentResolver(),
                         Settings.Secure.ANDROID_ID);
 
-                Parcel p = Parcel.obtain();
-                location.writeToParcel(p, 0);
-                final byte[] b = p.marshall();      //now you've got bytes
-                p.recycle();
-
+                UserLocation loc = new UserLocation();
+                loc.latitude = location.getLatitude();
+                loc.longitude = location.getLongitude();
+                loc.speed = location.getSpeed();
+                loc.UID = android_id;
 
                 faf.connect("meiner.ml", 2345);
-                faf.update(android_id, b.toString());
+                faf.update(android_id, gson.toJson(loc));
                 faf.close();
             }
         });
