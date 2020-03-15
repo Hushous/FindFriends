@@ -12,11 +12,6 @@ public class TCPConnection
 {
     TCPConnection()
     {
-        try {
-            socket.setSoTimeout(timeout);
-        } catch (SocketException e) {
-            e.printStackTrace();
-        }
     }
 
     public int send(String data)
@@ -66,12 +61,12 @@ public class TCPConnection
         }
     }
 
-    public boolean connect(String hostname, short port)
+    public boolean connect(String hostname, int port)
     {
         try
         {
             socket = new Socket(hostname, port);
-
+            socket.setSoTimeout(timeout);
 
         } catch (UnknownHostException ex) {
 

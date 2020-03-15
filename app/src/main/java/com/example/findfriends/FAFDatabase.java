@@ -10,7 +10,7 @@ public class FAFDatabase
     public FAFDatabase(){}
 
 
-    public boolean connect(String ip, short port)
+    public boolean connect(String ip, int port)
     {
         return con.connect(ip, port);
     }
