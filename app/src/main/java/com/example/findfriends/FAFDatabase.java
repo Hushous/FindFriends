@@ -76,6 +76,8 @@ public class FAFDatabase
         con.getPacket();
     }
 
+    public boolean isConnected(){ return con.isConnected(); }
+
 
     private TCPConnection con = new TCPConnection();
 }

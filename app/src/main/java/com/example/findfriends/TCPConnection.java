@@ -86,7 +86,7 @@ public class TCPConnection
 
     public String getHost() { return host; }
     public short getPort() { return port; }
-    public boolean isConnected() { return connected; }
+    public boolean isConnected() { return socket.isConnected();  }
     public void setTimeout(int timeout)
     {
         this.timeout = timeout;
@@ -99,7 +99,6 @@ public class TCPConnection
 
     private String host;
     private short port;
-    private boolean connected;
-    private Socket socket;
-    private int timeout = 10000;
+    private Socket socket = new Socket();
+    private int timeout = 5000;
 }

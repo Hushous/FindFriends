@@ -24,7 +24,9 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -49,7 +51,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private static final long MIN_TIME = 4000;
     private static final float MIN_DISTANCE = 1000;
 
-    Gson gson = new Gson();
+    private DBHandler dbHandler;
 
 
     @Override
@@ -59,7 +61,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
 
-        //requestPermission();
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -72,68 +73,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
         }
 
-        AsyncTask.execute(new Runnable() {
-            ArrayList<User> userlist;
-            String android_id = Settings.Secure.getString(MainActivity.this.getContentResolver(), Settings.Secure.ANDROID_ID);
-
-            //Todo: auslagern in externe klasse und .getLocations(); ...
-            @Override
-            public void run() {
-                FAFDatabase faf = new FAFDatabase();
-                faf.connect("meiner.ml", 2345);
-                String ans = faf.get("RaketeStart");
-
-                userlist = gson.fromJson(ans, new TypeToken<ArrayList<User>>(){}.getType());
-
-
-                if(userlist == null) userlist = new ArrayList<>();
-
-                User ownUser = new User();
-                ownUser.UID = android_id;
-                ownUser.Username = "Test";
-
-                if (userlist.contains(ownUser) == false) {
-                    userlist.add(ownUser);
-                    faf.update("RaketeStart", gson.toJson(userlist));
-                    System.out.println(gson.toJson(userlist));
-                }
-
-                faf.close();
-
-                while (true) {
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-
-                    faf.connect("meiner.ml", 2345);
-
-                    for (User user : userlist) {
-                        String loc = faf.get(user.UID);
-                        System.out.println(loc);
-                        //TODO: implement Marker objects
-                    }
-                    faf.close();
-                }
-            }
-        });
-    }
-
-
-    // Unsued for now
-    public boolean checkPermission() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    public void requestPermission() {
-
-        if (!(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_LOCATION_REQUEST_CODE);
-        } else {
-            // TODO Make it only appear once
-                Toast.makeText(this, "Permission granted!", Toast.LENGTH_LONG).show();
-        }
+        dbHandler = new DBHandler(this, "User");
     }
 
     @Override
@@ -141,7 +81,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         if (requestCode == MY_LOCATION_REQUEST_CODE) {
             if (permissions.length != 1 || permissions[0].equals(Manifest.permission.ACCESS_FINE_LOCATION ) || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "Please allow location!", Toast.LENGTH_LONG).show();
-                requestPermission();
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_LOCATION_REQUEST_CODE);
             }
 
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -171,11 +111,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_LOCATION_REQUEST_CODE);
         }
 
+        refreshLocations();
     }
 
     @Override
     public void onMyLocationClick(final @NonNull Location location) {
-        // TODO: Implement
+        AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
+            @Override
+            public void run() {
+                dbHandler.refreshOwnLocation(location);
+            }
+        });
     }
 
     @Override
@@ -193,20 +139,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         AsyncTask.THREAD_POOL_EXECUTOR.execute(new Runnable() {
             @Override
             public void run() {
-                FAFDatabase faf = new FAFDatabase();
-
-                String android_id = Settings.Secure.getString(MainActivity.this.getContentResolver(),
-                        Settings.Secure.ANDROID_ID);
-
-                UserLocation loc = new UserLocation();
-                loc.latitude = location.getLatitude();
-                loc.longitude = location.getLongitude();
-                loc.speed = location.getSpeed();
-                loc.UID = android_id;
-
-                faf.connect("meiner.ml", 2345);
-                faf.update(android_id, gson.toJson(loc));
-                faf.close();
+                dbHandler.refreshOwnLocation(location);
             }
         });
 
@@ -225,6 +158,56 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onProviderDisabled(String s) {
 
+    }
+
+    void refreshLocations()
+    {
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                ArrayList<User> userlist = dbHandler.enterRoom("RaketeStart");
+                final ArrayList<Marker> markerList = new ArrayList<>();
+
+                while (true) {
+                    try { Thread.sleep(5000); } catch (InterruptedException e) { e.printStackTrace(); }
+
+                    final ArrayList<UserLocation> locations = dbHandler.getLocations(userlist);
+
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            for(Marker m: markerList)
+                                m.remove();
+
+                            markerList.clear();
+
+
+                            for(final UserLocation location : locations)
+                            {
+                                if(location == null) return;
+
+
+                                MarkerOptions markerOptions = new MarkerOptions();
+                                // Setting the position for the marker
+                                markerOptions.position(new LatLng(location.latitude, location.longitude));
+                                markerOptions.flat(true);
+                                //markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.new_mark));
+
+                                // Setting a new infowindow for every station
+                                //CustomInfoWindow customInfoWindow = new CustomInfoWindow(this);
+                                //mMap.setInfoWindowAdapter(customInfoWindow);
+
+                                Marker m = mMap.addMarker(markerOptions);
+                                m.setTitle(location.UID);
+                                m.setTag(location);
+                                markerList.add(m);
+                            }
+                        }
+                    });
+                }
+            }
+        });
     }
 }
 
